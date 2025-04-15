@@ -39,7 +39,7 @@
           (while (re-search-forward "\\[\\[file:\\(Journelly\\.org\\.assets/[^\]]+\\)\\]\\]" heading-end t)
             (push (match-string 1) image-links)))
 
-        ;; Add Denote metadata and content
+        ;; Add Denote metadata and contents
         (with-temp-file new-file-name
           (insert (format "#+title: %s\n" human-readable-date))
           (insert (format "#+date: [%s %s]\n" date time))
