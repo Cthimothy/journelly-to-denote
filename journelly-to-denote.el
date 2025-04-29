@@ -1,6 +1,7 @@
 (defun tw/journelly-to-denote-journal ()
   (interactive)
-  (let* ((journelly-file "/Users/t.welch2/Library/Mobile Documents/iCloud~com~xenodium~Journelly/Documents/Journelly.org")
+  (let* ((journelly-base-dir "/Users/t.welch2/Library/Mobile Documents/iCloud~com~xenodium~Journelly/Documents/")
+         (journelly-file (expand-file-name "Journelly.org" journelly-base-dir))
          (denote-dir "~/Org/Journal/")
          (image-dir "~/Org/Journal/images/")
          (heading-regexp "^\\* \\[\\([0-9-]+\\) \\([A-Za-z]+\\) \\([0-9:]+\\)\\] @ \\(.*\\)"))
@@ -22,7 +23,6 @@
              (content (buffer-substring-no-properties heading-start heading-end))
              (day-of-week (format-time-string "%A" (date-to-time date)))
              (human-readable-date (format-time-string "%-d-%B-%Y" (date-to-time date)))
-             (date-without-dashes (replace-regexp-in-string "-" "" date))
              (timestamp (format-time-string "%Y%m%dT%H%M%S" (date-to-time (concat date " " time))))
              (location-slug (concat "@" (downcase (replace-regexp-in-string " " "-" location))))
              (new-file-name (concat denote-dir
@@ -45,16 +45,30 @@
           (insert (format "#+date: [%s %s]\n" date time))
           (insert "#+filetags: :journal:\n")
           (insert (format "#+identifier: %s\n\n" timestamp))
-          (insert content)
-          
+
+          ;; Process content and convert TODOs
+          (let ((processed-lines (split-string content "\n"))
+                (scheduled (format-time-string "<%Y-%m-%d %a>" (date-to-time date))))
+            (dolist (line processed-lines)
+              (if (string-match "^\\s-*TODO\\s-+" line)
+                  (insert (format "* TODO %s\n  SCHEDULED: %s\n"
+                                  (string-trim (replace-match "" nil nil line))
+                                  scheduled))
+                (insert line "\n"))))
+
           ;; Copy image files and update links in the content
           (dolist (image-link image-links)
-            (let* ((image-file (expand-file-name image-link "/Users/t.welch2/Library/Mobile Documents/iCloud~com~xenodium~Journelly/Documents/"))
+            (let* ((image-file (expand-file-name image-link journelly-base-dir))
                    (new-image-path (concat image-dir (file-name-nondirectory image-file))))
               (when (file-exists-p image-file)
                 (copy-file image-file new-image-path t)
                 (goto-char (point-min))
                 (while (re-search-forward (regexp-quote image-link) nil t)
-                  (replace-match (concat "file:" new-image-path)))))))))
+                  (replace-match (concat "file:" new-image-path))))))))
 
-    (message "Journelly entries extracted to Denote journal")))
+    ;; Close the Journelly.org buffer
+    (kill-buffer (get-file-buffer journelly-file))
+
+    (message "Journelly entries extracted to Denote journal"))))
+
+(provide 'journelly-to-denote)
